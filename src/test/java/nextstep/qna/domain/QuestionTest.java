@@ -1,16 +1,16 @@
 package nextstep.qna.domain;
 
+import nextstep.qna.CannotDeleteException;
 import nextstep.users.domain.NsUserTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static nextstep.qna.domain.AnswerTest.A1;
-import static nextstep.qna.domain.AnswerTest.A2;
 import static nextstep.users.domain.NsUserTest.JAVAJIGI;
-import static nextstep.users.domain.NsUserTest.SANJIGI;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.*;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 public class QuestionTest {
@@ -18,31 +18,33 @@ public class QuestionTest {
     public static final Question Q2 = new Question(NsUserTest.SANJIGI, "title2", "contents2");
 
     @Test
-    @DisplayName("로그인 한 유저가 질문 작성자인지 테스트")
-    public void isOwner() {
-        assertThat(Q1.isOwner(JAVAJIGI)).isTrue();
-        assertThat(Q1.isOwner(SANJIGI)).isFalse();
+    @DisplayName("답변 추가 테스트")
+    public void addAnswer() {
+        Q1.addAnswer(A1);
+
+        assertThat(Q1.getAnswers().get(0)).isEqualTo(A1);
     }
 
     @Test
-    @DisplayName("다른 사람이 쓴 답변이 있는지 테스트")
-    public void hasOtherUserAnswer() {
-        Q1.addAnswer(A1);
-        assertThat(Q1.hasOtherUserAnswer(JAVAJIGI)).isFalse();
+    @DisplayName("로그인 한 유저가 질문 작성자인지 테스트")
+    public void isOwner() {
+        assertThatCode(() -> Q1.isOwner(JAVAJIGI)).doesNotThrowAnyException();
 
-        Q1.addAnswer(A2);
-        assertThat(Q1.hasOtherUserAnswer(JAVAJIGI)).isTrue();
+        assertThatThrownBy(() -> Q2.isOwner(JAVAJIGI))
+                .isInstanceOf(CannotDeleteException.class)
+                .hasMessage("질문을 삭제할 권한이 없습니다.");
     }
 
     @Test
     @DisplayName("질문 삭제 테스트")
-    public void deleteQuestion() {
-        Q1.addAnswer(A1);
+    public void deleteQuestion() throws CannotDeleteException {
+        List<DeleteHistory> deleteHistories = Q1.deleteQuestion(JAVAJIGI);
+
         assertAll(
-                () -> assertThat(Q1.deleteQuestion().get(0)).isEqualTo(new DeleteHistory(ContentType.QUESTION, 0L, JAVAJIGI, LocalDateTime.now())),
+                () -> assertThat(deleteHistories.get(0)).isEqualTo(new DeleteHistory(ContentType.QUESTION, 0L, JAVAJIGI, LocalDateTime.now())),
                 () -> assertThat(Q1.isDeleted()).isTrue(),
-                () -> assertThat(Q1.deleteQuestion().get(1)).isEqualTo(new DeleteHistory(ContentType.ANSWER, null, JAVAJIGI, LocalDateTime.now())),
-                () -> assertThat(Q1.getAnswers().get(0).isDeleted()).isTrue()
+                () -> assertThat(deleteHistories.get(1)).isEqualTo(new DeleteHistory(ContentType.ANSWER, null, JAVAJIGI, LocalDateTime.now())),
+                () -> assertThat(A1.isDeleted()).isTrue()
         );
     }
 
